@@ -613,24 +613,35 @@ describe('openspec workset (7.1)', () => {
   });
 
   describe('opener config', () => {
-    it('adds a new workspace-file tool from config', async () => {
-      writeOpenersConfig({ zed: { style: 'workspace-file' } });
-      await createPlatform(['--tool', 'zed']);
-      const fakeZed = createFakeTool(tempDir, 'zed');
+    it.each([
+      { tool: 'code-insiders', args: [] },
+      { tool: 'code', args: ['--new-window'] },
+    ])('launches the documented $tool opener configuration', async ({ tool, args }) => {
+      delete process.env.OPENSPEC_ENABLE_CLI_AGENT_OPENERS;
+      writeOpenersConfig({
+        'code-insiders': { style: 'workspace-file', label: 'VS Code Insiders' },
+        code: { args: ['--new-window'] },
+      });
+      const created = await createPlatform(['--tool', tool]);
+      expect(created.exitCode).toBe(0);
+      const fakeEditor = createFakeTool(tempDir, tool);
 
       const result = await runCLI(['workset', 'open', 'platform'], {
         cwd: tempDir,
-        env: envWithFakeTools(env, [fakeZed]),
+        env: envWithFakeTools(env, [fakeEditor]),
       });
 
       expect(result.exitCode).toBe(0);
-      expect(readLaunchLog(fakeZed.logPath).args).toEqual([
-        getWorksetCodeWorkspacePath('platform', pathOptions()),
-      ]);
+      expect(readLaunchLog(fakeEditor.logPath)).toEqual({
+        cwd: memberA,
+        args: [...args, getWorksetCodeWorkspacePath('platform', pathOptions())],
+      });
     });
 
-    it('renaming an attach flag is a one-line local fix', async () => {
-      writeOpenersConfig({ claude: { attach_flag: '--dir' } });
+    it('passes configured args before configured attach pairs', async () => {
+      writeOpenersConfig({
+        claude: { args: ['--model', 'opus'], attach_flag: '--dir' },
+      });
       await createPlatform(['--tool', 'claude']);
       const fakeClaude = createFakeTool(tempDir, 'claude');
 
@@ -641,6 +652,8 @@ describe('openspec workset (7.1)', () => {
 
       expect(result.exitCode).toBe(0);
       expect(readLaunchLog(fakeClaude.logPath).args).toEqual([
+        '--model',
+        'opus',
         '--dir',
         memberA,
         '--dir',
@@ -884,7 +897,7 @@ describe('interactive compose cancellation (in-process)', () => {
   async function runCreate(promptsModule: Record<string, unknown>): Promise<void> {
     vi.doMock('@inquirer/prompts', () => promptsModule);
     const { registerWorksetCommand } = await import(
-      '../../src/commands/workset.js'
+      '../../src/cli/commands/workset.js'
     );
     const { Command } = await import('commander');
     const program = new Command();
@@ -1030,7 +1043,7 @@ describe('interactive compose cancellation (in-process)', () => {
       confirm: vi.fn(async () => false),
     }));
     const { registerWorksetCommand } = await import(
-      '../../src/commands/workset.js'
+      '../../src/cli/commands/workset.js'
     );
     const { Command } = await import('commander');
 
