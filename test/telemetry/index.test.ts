@@ -54,6 +54,12 @@ describe('telemetry/index', () => {
   });
 
   function enableTelemetry() {
+    process.env.OPENSPEC_TELEMETRY = '1';
+    delete process.env.DO_NOT_TRACK;
+    delete process.env.CI;
+  }
+
+  function clearTelemetryControls() {
     delete process.env.OPENSPEC_TELEMETRY;
     delete process.env.DO_NOT_TRACK;
     delete process.env.CI;
@@ -70,15 +76,28 @@ describe('telemetry/index', () => {
   }
 
   describe('isTelemetryEnabled', () => {
-    it('should return false when OPENSPEC_TELEMETRY=0', () => {
-      process.env.OPENSPEC_TELEMETRY = '0';
+    it('should return false by default', () => {
+      clearTelemetryControls();
       expect(isTelemetryEnabled()).toBe(false);
     });
 
-    it('should return false when DO_NOT_TRACK=1', () => {
-      process.env.DO_NOT_TRACK = '1';
-      expect(isTelemetryEnabled()).toBe(false);
-    });
+    it.each(['1', 'true', 'YES', 'on'])(
+      'should return true for OPENSPEC_TELEMETRY=%s',
+      (value) => {
+        clearTelemetryControls();
+        process.env.OPENSPEC_TELEMETRY = value;
+        expect(isTelemetryEnabled()).toBe(true);
+      }
+    );
+
+    it.each(['0', 'false', ' no ', 'off', 'anything', ''])(
+      'should return false for OPENSPEC_TELEMETRY=%s',
+      (value) => {
+        clearTelemetryControls();
+        process.env.OPENSPEC_TELEMETRY = value;
+        expect(isTelemetryEnabled()).toBe(false);
+      }
+    );
 
     it.each(['true', 'TRUE', ' Yes ', 'on', 'anything'])(
       'should return false for DO_NOT_TRACK=%s (opt-out fails safe)',
@@ -89,17 +108,8 @@ describe('telemetry/index', () => {
       }
     );
 
-    it.each(['false', 'FALSE', ' no ', 'off', 'anything'])(
-      'should return false for OPENSPEC_TELEMETRY=%s (opt-out fails safe)',
-      (value) => {
-        enableTelemetry();
-        process.env.OPENSPEC_TELEMETRY = value;
-        expect(isTelemetryEnabled()).toBe(false);
-      }
-    );
-
     it.each(['0', 'false', 'no', 'off', ''])(
-      'should stay enabled for DO_NOT_TRACK=%s (explicitly off)',
+      'should allow an explicit opt-in when DO_NOT_TRACK=%s',
       (value) => {
         enableTelemetry();
         process.env.DO_NOT_TRACK = value;
@@ -107,30 +117,17 @@ describe('telemetry/index', () => {
       }
     );
 
-    it.each(['1', 'true', 'YES', 'on'])(
-      'should stay enabled for OPENSPEC_TELEMETRY=%s (explicitly on)',
+    it.each(['1', 'yes', 'TRUE', 'on'])(
+      'should return false for CI=%s',
       (value) => {
         enableTelemetry();
-        process.env.OPENSPEC_TELEMETRY = value;
-        expect(isTelemetryEnabled()).toBe(true);
-      }
-    );
-
-    it('should return false when CI=true', () => {
-      process.env.CI = 'true';
-      expect(isTelemetryEnabled()).toBe(false);
-    });
-
-    it.each(['1', 'yes', 'TRUE', 'on'])(
-      'should return false for CI=%s (same rule as version-check)',
-      (value) => {
         process.env.CI = value;
         expect(isTelemetryEnabled()).toBe(false);
       }
     );
 
     it.each(['false', '0', 'no', 'off', ''])(
-      'should return true when CI=%s (explicitly off)',
+      'should allow an explicit opt-in when CI=%s',
       (value) => {
         enableTelemetry();
         process.env.CI = value;
@@ -138,37 +135,25 @@ describe('telemetry/index', () => {
       }
     );
 
-    it('should return true when no opt-out is set', () => {
-      enableTelemetry();
-      expect(isTelemetryEnabled()).toBe(true);
-    });
+    it('should return false when telemetry.enabled is missing', () => {
+      clearTelemetryControls();
+      writeTelemetryConfig({ anonymousId: 'id-only' });
 
-    it('should prioritize OPENSPEC_TELEMETRY=0 over other settings', () => {
-      process.env.OPENSPEC_TELEMETRY = '0';
-      delete process.env.DO_NOT_TRACK;
-      delete process.env.CI;
       expect(isTelemetryEnabled()).toBe(false);
     });
 
-    it('should return false when telemetry.enabled is false in global config', () => {
+    it('should return true when telemetry.enabled is true', () => {
+      clearTelemetryControls();
+      writeTelemetryConfig({ enabled: true });
+
+      expect(isTelemetryEnabled()).toBe(true);
+    });
+
+    it('should return false when telemetry.enabled is false, even with an environment opt-in', () => {
       enableTelemetry();
       writeTelemetryConfig({ enabled: false });
 
       expect(isTelemetryEnabled()).toBe(false);
-    });
-
-    it('should return true when telemetry.enabled is missing (opt-out default)', () => {
-      enableTelemetry();
-      writeTelemetryConfig({ anonymousId: 'id-only' });
-
-      expect(isTelemetryEnabled()).toBe(true);
-    });
-
-    it('should return true when telemetry.enabled is true', () => {
-      enableTelemetry();
-      writeTelemetryConfig({ enabled: true });
-
-      expect(isTelemetryEnabled()).toBe(true);
     });
 
     it('should let OPENSPEC_TELEMETRY=0 win over telemetry.enabled true', () => {

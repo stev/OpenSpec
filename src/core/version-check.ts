@@ -26,12 +26,14 @@ const MAX_REDIRECTS = 3;
 const SAFE_VERSION = /^\d{1,10}\.\d{1,10}\.\d{1,10}(?:-[0-9A-Za-z.-]{1,64})?(?:\+[0-9A-Za-z.-]{1,64})?$/;
 
 /**
- * The check is opt-out and must never get in the way: no network in CI or
- * tests, an explicit escape hatch for anyone offline or air-gapped, and the
- * same privacy signals telemetry already honors — a user who set DO_NOT_TRACK
- * or telemetry.enabled false did not agree to a different outbound request.
+ * The check is opt-in: it sends no network request unless OPENSPEC_UPDATE_CHECK
+ * is explicitly set to an on-value, using the same spellings as
+ * OPENSPEC_TELEMETRY. Even then, it preserves the opt-out, CI, test, and
+ * global privacy guards below.
  */
 function isCheckEnabled(): boolean {
+  const requested = process.env.OPENSPEC_UPDATE_CHECK?.trim().toLowerCase();
+  if (!['1', 'true', 'yes', 'on'].includes(requested ?? '')) return false;
   if (process.env.OPENSPEC_NO_UPDATE_CHECK !== undefined) return false;
   if (isTelemetryOptedOutByEnv()) return false;
   if (isCiEnvironment()) return false;

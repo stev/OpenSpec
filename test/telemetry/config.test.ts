@@ -108,13 +108,14 @@ describe('telemetry/config', () => {
 
       fs.mkdirSync(legacyConfigDir, { recursive: true });
       fs.writeFileSync(legacyConfigPath, JSON.stringify({
-        telemetry: { anonymousId: 'legacy-id', noticeSeen: true },
+        telemetry: { enabled: true, anonymousId: 'legacy-id', noticeSeen: true },
       }));
 
       const config = await readConfig();
 
-      expect(config.telemetry).toEqual({ anonymousId: 'legacy-id', noticeSeen: true });
+      expect(config.telemetry).toEqual({ enabled: true, anonymousId: 'legacy-id', noticeSeen: true });
       expect(JSON.parse(fs.readFileSync(newConfigPath, 'utf-8')).telemetry).toEqual({
+        enabled: true,
         anonymousId: 'legacy-id',
         noticeSeen: true,
       });
@@ -153,7 +154,7 @@ describe('telemetry/config', () => {
 
       fs.mkdirSync(legacyConfigDir, { recursive: true });
       fs.writeFileSync(legacyConfigPath, JSON.stringify({
-        telemetry: { anonymousId: 'legacy-id', noticeSeen: true },
+        telemetry: { enabled: true, anonymousId: 'legacy-id', noticeSeen: true },
         legacyOnly: 'ignored',
       }));
 
@@ -166,9 +167,10 @@ describe('telemetry/config', () => {
       const config = await readConfig();
 
       expect(config.featureFlags).toEqual({ existing: true });
-      expect(config.telemetry).toEqual({ anonymousId: 'new-id', noticeSeen: true });
+      expect(config.telemetry).toEqual({ enabled: true, anonymousId: 'new-id', noticeSeen: true });
       expect((config as Record<string, unknown>).legacyOnly).toBeUndefined();
       expect(JSON.parse(fs.readFileSync(newConfigPath, 'utf-8')).telemetry).toEqual({
+        enabled: true,
         anonymousId: 'new-id',
         noticeSeen: true,
       });

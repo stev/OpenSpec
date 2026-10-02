@@ -68,6 +68,7 @@ function hasMissingTelemetryFields(config: GlobalConfig): boolean {
   const telemetry = config.telemetry;
   return (
     !telemetry ||
+    telemetry.enabled === undefined ||
     telemetry.anonymousId === undefined ||
     telemetry.noticeSeen === undefined
   );
@@ -81,6 +82,7 @@ function mergeLegacyTelemetry(config: GlobalConfig, legacyConfig: GlobalConfig):
 
   const currentTelemetry = config.telemetry ?? {};
   const shouldMigrate =
+    (currentTelemetry.enabled === undefined && legacyTelemetry.enabled !== undefined) ||
     (currentTelemetry.anonymousId === undefined && legacyTelemetry.anonymousId !== undefined) ||
     (currentTelemetry.noticeSeen === undefined && legacyTelemetry.noticeSeen !== undefined);
 

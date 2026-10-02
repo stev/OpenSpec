@@ -233,13 +233,7 @@ Open a discussion (for core design changes) or an issue before you open a PR, an
 <details>
 <summary><strong>Telemetry</strong></summary>
 
-OpenSpec collects anonymous usage stats.
-
-We collect only command names and version to understand usage patterns. No arguments, paths, content, or PII. Automatically disabled in CI.
-
-**Opt-out (any one is enough):**
-- `openspec config set telemetry.enabled false` (global config; unset means on)
-- `export OPENSPEC_TELEMETRY=0` or `export DO_NOT_TRACK=1` (env overrides config)
+Telemetry collection and the automatic update check are disabled by default. See the [CLI environment variables](docs/cli.md#environment-variables) to enable either one.
 
 </details>
 

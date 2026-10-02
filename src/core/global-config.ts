@@ -11,9 +11,9 @@ export const GLOBAL_DATA_DIR_NAME = 'openspec';
 export type Profile = 'core' | 'custom';
 export type Delivery = 'both' | 'skills' | 'commands';
 
-/** Telemetry section of global config (identity + opt-out). */
+/** Telemetry section of global config (identity + opt-in). */
 export interface TelemetryConfig {
-  /** When false, telemetry is disabled. Unset means enabled (opt-out model). */
+  /** When true, telemetry is enabled. Unset means disabled (opt-in model). */
   enabled?: boolean;
   /** Anonymous random UUID; no relation to the user. */
   anonymousId?: string;

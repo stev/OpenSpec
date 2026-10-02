@@ -1,12 +1,12 @@
 /**
- * Telemetry opt-out signals, shared by telemetry and the version check so both
- * outbound surfaces honor exactly the same values.
+ * Telemetry environment signals.
  *
- * Parsing is tolerant in the style of isCiEnvironment(): a user who wrote
- * DO_NOT_TRACK=true meant it, and an exact-match test that silently kept
- * sending would be a privacy control that does not work. Ambiguity fails
- * safe — a value we cannot read as "on" suppresses the request rather than
- * enabling it.
+ * `DO_NOT_TRACK` remains a fail-safe opt-out: any value other than an explicit
+ * off-value blocks telemetry. `OPENSPEC_TELEMETRY` is an opt-in control: only
+ * explicit on-values enable telemetry.
+ *
+ * `isTelemetryOptedOutByEnv` is retained for the version check, which shares
+ * the legacy opt-out semantics independently of telemetry collection.
  */
 
 const ON_VALUES = new Set(['1', 'true', 'yes', 'on']);
@@ -24,7 +24,17 @@ export function isTelemetryDisabledByEnv(env: NodeJS.ProcessEnv = process.env): 
   return value !== undefined && !ON_VALUES.has(value.trim().toLowerCase());
 }
 
-/** True when either opt-out signal asks us to stay off the network. */
+/** True when `OPENSPEC_TELEMETRY` explicitly opts into telemetry. */
+export function isTelemetryOptedInByEnv(env: NodeJS.ProcessEnv = process.env): boolean {
+  const value = env.OPENSPEC_TELEMETRY;
+  return value !== undefined && ON_VALUES.has(value.trim().toLowerCase());
+}
+
+/**
+ * Legacy opt-out predicate used by the version check.
+ *
+ * Telemetry collection uses `isTelemetryOptedInByEnv` instead.
+ */
 export function isTelemetryOptedOutByEnv(env: NodeJS.ProcessEnv = process.env): boolean {
   return isTelemetryDisabledByEnv(env) || isDoNotTrackSet(env);
 }

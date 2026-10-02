@@ -12,7 +12,7 @@ Fixes ship in the latest published version on npm. Older versions are not patche
 
 ## Threat model
 
-OpenSpec is a local command-line tool. It has no server, no network listener, and no privileged daemon. It reads and writes markdown under the directory you run it in, using paths you supply, with your own user permissions. It can offer to upgrade itself during `openspec update`, and only with your say-so. It sends anonymous usage telemetry, which you can disable with `OPENSPEC_TELEMETRY=0`.
+OpenSpec is a local command-line tool. It has no server, no network listener, and no privileged daemon. It reads and writes markdown under the directory you run it in, using paths you supply, with your own user permissions. It can offer to upgrade itself during `openspec update`, and only with your say-so. See the [CLI environment variables](docs/cli.md#environment-variables) for telemetry and update-check defaults.
 
 That shapes what is and isn't a vulnerability here:
 
@@ -45,8 +45,8 @@ ls node_modules | grep -E '^(vite|rollup|vitest|eslint|js-yaml|minimatch)$'   # 
 | Install scripts | The package ships no `preinstall`, `install`, or `postinstall` script, so installing it from the npm registry runs no code from OpenSpec. (`prepare` is still declared; npm runs it only for git and local-directory installs, where it builds from source.) Shell completions are opt-in via `openspec completion install`; the CLI prints a one-line tip about them on its first run. |
 | Running other programs | Every call that goes through a shell uses a fixed literal (`which gh`, `gh auth status`). Anything carrying your input — issue text, editor paths, workset commands, the path passed to `openspec update` — uses an argument array, never string interpolation into a shell. On Windows, `.cmd` shims are launched through `cross-spawn`, which escapes arguments rather than concatenating them. |
 | Installing software | `openspec update` can run `npm install -g @fission-ai/openspec@latest` and then re-run `openspec update` with the upgraded CLI. It does this only after you answer yes to a prompt, only for the OpenSpec package itself, only when npm owns the install, and never in CI or a non-interactive shell. A global install lives outside your project, so it runs with your permissions there and executes whatever lifecycle scripts the published package ships. It then reads the installed binary's version back rather than assuming the upgrade took. Decline and it prints the command for you to run yourself. |
-| Telemetry | Command name, OpenSpec version, and a locally generated random UUID. No file paths, no file contents, no environment, no hostname, and IP capture is explicitly disabled. Opt out with `OPENSPEC_TELEMETRY=0` or `DO_NOT_TRACK=1`; it is off in CI automatically. |
-| Network | Telemetry when enabled, and one npm registry request during `openspec update` to check whether a newer CLI has been published. That request sends no data about you beyond what any HTTP request reveals, runs once per `openspec update` with nothing cached, and is skipped when `CI` is set to anything but an explicit off-value, under `NODE_ENV=test`, or when `OPENSPEC_NO_UPDATE_CHECK`, `DO_NOT_TRACK=1`, or `OPENSPEC_TELEMETRY=0` is set. Reading, writing, and validating specs is entirely local. |
+| Telemetry | Disabled by default. When enabled, OpenSpec sends the command name, version, and a locally generated random UUID. It does not send file paths, file contents, environment, or hostname. IP capture is explicitly disabled. See the [CLI environment variables](docs/cli.md#environment-variables) for the opt-in and blocking rules. |
+| Network | The telemetry and npm registry version-check requests are disabled by default. See the [CLI environment variables](docs/cli.md#environment-variables) for their opt-in and blocking rules. Reading, writing, and validating specs is entirely local. |
 
 ## Automated checks
 

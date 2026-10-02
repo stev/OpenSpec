@@ -212,7 +212,7 @@ The offer appears only in an interactive terminal, and only when npm owns the in
 
 Whenever anything is printed, it names the directory the running CLI was loaded from — the thing to check when you did upgrade but a stale shim still owns your `PATH`.
 
-It asks the registry in `npm_config_registry` when npm exports it, and `https://registry.npmjs.org` otherwise. No `.npmrc` is read: letting file contents choose where an outbound request goes is a flow worth avoiding, and a project's `.npmrc` travels with the repository. On a private mirror, export `npm_config_registry` — or set `OPENSPEC_NO_UPDATE_CHECK` to skip the check entirely. The check is skipped when `CI` is set to anything but an explicit off-value (`false`, `0`, `no`, `off`, or empty), under `NODE_ENV=test`, and whenever `OPENSPEC_NO_UPDATE_CHECK` (any value), `DO_NOT_TRACK=1`, or `OPENSPEC_TELEMETRY=0` is set. It runs before the update and can delay it by at most 1.5 seconds — it gives up after that even when the network drops packets silently, and stays quiet when the registry is unreachable.
+The version check is off by default. See [Environment Variables](#environment-variables) to enable it and review its network rules.
 
 **How "up to date" is decided:** skill files record the version that generated
 them, so OpenSpec compares that against the installed CLI. Command files carry no
@@ -1182,10 +1182,7 @@ openspec config profile
 openspec config profile core
 ```
 
-**Telemetry opt-out:** `telemetry.enabled` defaults to on when unset (opt-out model).
-Set it to `false` to disable anonymous usage stats and the `openspec update` version check.
-Environment variables take precedence over config: `OPENSPEC_TELEMETRY=0`, `DO_NOT_TRACK=1`,
-and a truthy `CI` value (e.g. `true`/`1`/`yes`) always disable telemetry regardless of the config value.
+**Telemetry:** See [Environment Variables](#environment-variables) for telemetry defaults and opt-in settings.
 
 `openspec config profile` starts with a current-state summary, then lets you choose:
 - Change delivery + workflows
@@ -1320,17 +1317,20 @@ suppress that tip entirely.
 
 ## Environment Variables
 
+**Privacy defaults changed:** telemetry collection and the automatic update check are disabled by default. Enable telemetry with `telemetry.enabled: true` or `OPENSPEC_TELEMETRY=1`. Enable the update check with `OPENSPEC_UPDATE_CHECK=1`.
+
 | Variable | Description |
 |----------|-------------|
-| `OPENSPEC_TELEMETRY` | Set to `0` to disable telemetry and the `openspec update` version check (overrides `telemetry.enabled` in global config) |
-| `DO_NOT_TRACK` | Set to `1` to disable telemetry and the `openspec update` version check (standard DNT signal; overrides config) |
+| `OPENSPEC_TELEMETRY` | Set to `1`, `true`, `yes`, or `on` to enable telemetry. Any other set value disables it. |
+| `DO_NOT_TRACK` | Set to `1`, `true`, `yes`, or `on` to disable telemetry and the `openspec update` version check. Set it to `0`, `false`, `no`, or `off` to leave those controls eligible to run. |
 | `OPENSPEC_CONCURRENCY` | Default concurrency for bulk validation (default: 6) |
 | `EDITOR` or `VISUAL` | Editor for `openspec config edit` |
 | `NO_COLOR` | Disable color output when set |
 | `OPENSPEC_NO_ANIMATION` | Disable the `openspec init` welcome animation when set |
 | `OPENSPEC_NO_COMPLETIONS` | Set to `1` to suppress the one-time tip about shell completions |
-| `OPENSPEC_NO_UPDATE_CHECK` | Disable the `openspec update` check for a newer published CLI when set (any value, including empty). Also skipped when `CI` is set (unless `false`/`0`/`no`/`off`) or `NODE_ENV=test` |
-| `npm_config_registry` | Registry the `openspec update` version check asks. Must be an `http(s)` URL or it falls back to `https://registry.npmjs.org`. No `.npmrc` file is read |
+| `OPENSPEC_UPDATE_CHECK` | Set to `1`, `true`, `yes`, or `on` to enable the newer-version check during `openspec update`. |
+| `OPENSPEC_NO_UPDATE_CHECK` | Disable the newer-version check when set (any value, including empty), even when `OPENSPEC_UPDATE_CHECK` enables it. |
+| `npm_config_registry` | Registry the enabled `openspec update` version check asks. It must be an HTTPS URL. No `.npmrc` file is read. |
 
 ---
 

@@ -91,6 +91,7 @@ describe('getAvailableCliUpdate', () => {
   const ENV_KEYS = [
     'NODE_ENV',
     'CI',
+    'OPENSPEC_UPDATE_CHECK',
     'OPENSPEC_NO_UPDATE_CHECK',
     'DO_NOT_TRACK',
     'OPENSPEC_TELEMETRY',
@@ -116,8 +117,10 @@ describe('getAvailableCliUpdate', () => {
     const port = (server.address() as { port: number }).port;
 
     originalEnv = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
-    // The check is disabled under test/CI by design; opt back in to exercise it.
+    // The check is opt-in and disabled under test/CI; explicitly enable it to
+    // exercise the request path.
     for (const key of ENV_KEYS) delete process.env[key];
+    process.env.OPENSPEC_UPDATE_CHECK = '1';
     // The registry must be https — the CLI refuses a cleartext one — so the
     // fixture speaks https and the TLS transport is swapped for the local
     // plaintext server at the socket level. Everything above it (URL,
@@ -307,7 +310,16 @@ describe('getAvailableCliUpdate', () => {
     expect(Date.now() - startedAt).toBeLessThan(5000);
   }, 10000);
 
-  it('sends nothing at all when opted out', async () => {
+  it('sends nothing unless explicitly enabled, or when enabled then opted out', async () => {
+    delete process.env.OPENSPEC_UPDATE_CHECK;
+    await expect(getAvailableCliUpdate()).resolves.toBeNull();
+
+    for (const value of ['', '0', 'false', 'off', 'maybe']) {
+      process.env.OPENSPEC_UPDATE_CHECK = value;
+      await expect(getAvailableCliUpdate()).resolves.toBeNull();
+    }
+    process.env.OPENSPEC_UPDATE_CHECK = '1';
+
     for (const [key, value] of [
       ['OPENSPEC_NO_UPDATE_CHECK', '1'],
       ['OPENSPEC_NO_UPDATE_CHECK', ''],
@@ -384,7 +396,13 @@ describe('getAvailableCliUpdate', () => {
     }
   });
 
-  it('still runs when CI is explicitly switched off', async () => {
+  it('runs only for explicit on-values when CI is explicitly switched off', async () => {
+    for (const value of ['1', 'true', 'yes', 'on']) {
+      process.env.OPENSPEC_UPDATE_CHECK = value;
+      process.env.CI = 'false';
+      await expect(getAvailableCliUpdate()).resolves.toBe(bumpMajor(OPENSPEC_VERSION));
+    }
+
     for (const value of ['false', '0', 'no', '']) {
       process.env.CI = value;
       await expect(getAvailableCliUpdate()).resolves.toBe(bumpMajor(OPENSPEC_VERSION));
@@ -449,7 +467,11 @@ describe('getAvailableCliUpdate against an unroutable registry', () => {
     // A file:// URL, not a path: import() rejects a bare Windows path.
     const distModule = new URL('../../dist/core/version-check.js', import.meta.url).href;
 
-    const env = { ...process.env, npm_config_registry: 'https://192.0.2.1:81/' };
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      npm_config_registry: 'https://192.0.2.1:81/',
+      OPENSPEC_UPDATE_CHECK: '1',
+    };
     // TEST-NET-1 (RFC 5737) is routable nowhere, so the connection can only
     // end by our own teardown. Windows drops empty env vars, so unset rather
     // than blank the guards that would otherwise skip the check.

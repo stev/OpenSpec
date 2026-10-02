@@ -132,7 +132,7 @@ OpenSpec works best with high-reasoning models. The README recommends models lik
 
 ### Does OpenSpec collect data?
 
-It collects anonymous usage stats: command names and version only. No arguments, paths, content, or personal data, and it's off automatically in CI. Opt out with `export OPENSPEC_TELEMETRY=0` or `export DO_NOT_TRACK=1`.
+No. Telemetry is disabled by default. See the [CLI environment variables](cli.md#environment-variables) to enable it and review what it collects.
 
 ### How do I upgrade?
 

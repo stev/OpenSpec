@@ -4,9 +4,9 @@
  * Privacy-first design:
  * - Only tracks command name and version
  * - No arguments, file paths, or content
- * - Opt-out via OPENSPEC_TELEMETRY=0, DO_NOT_TRACK=1, or
- *   `openspec config set telemetry.enabled false`
- * - Auto-disabled in CI environments
+ * - Disabled by default; opt in with OPENSPEC_TELEMETRY=1 or
+ *   `openspec config set telemetry.enabled true`
+ * - DO_NOT_TRACK and CI environments always disable it
  * - Anonymous ID is a random UUID with no relation to the user
  *
  * Events are sent with a plain fetch to PostHog's stable public `/batch/`
@@ -23,7 +23,7 @@ import { randomUUID } from 'crypto';
 import { getGlobalConfig, isGlobalConfigUnreadable } from '../core/global-config.js';
 import { isCiEnvironment } from '../utils/ci.js';
 import { getTelemetryConfig, updateTelemetryConfig } from './config.js';
-import { isTelemetryOptedOutByEnv } from './opt-out.js';
+import { isDoNotTrackSet, isTelemetryDisabledByEnv, isTelemetryOptedInByEnv } from './opt-out.js';
 
 // PostHog API key - public key for client-side analytics
 // This is safe to embed as it only allows sending events, not reading data
@@ -65,21 +65,21 @@ async function safeTelemetryFetch(url: string, options: RequestInit): Promise<Re
  * Check if telemetry is enabled.
  *
  * Precedence (first match wins):
- * 1. OPENSPEC_TELEMETRY set to anything but an on-value (1/true/yes/on) → disabled
- * 2. DO_NOT_TRACK set to anything but an off-value (0/false/no/off) → disabled
- * 3. CI set to a truthy/on value → disabled (same rule as version-check)
+ * 1. DO_NOT_TRACK set to anything but an off-value (0/false/no/off) → disabled
+ * 2. CI set to a truthy/on value → disabled (same rule as version-check)
+ * 3. OPENSPEC_TELEMETRY set to anything but an on-value (1/true/yes/on) → disabled
  * 4. global config telemetry.enabled === false → disabled
  * 5. global config file exists but cannot be parsed → disabled
- * 6. otherwise enabled (unset config means on; opt-out model)
+ * 6. OPENSPEC_TELEMETRY is an on-value or telemetry.enabled === true → enabled
+ * 7. otherwise disabled (unset configuration is not consent)
  *
  * Kept synchronous so call sites need not become async. Reads config via
  * sync getGlobalConfig() rather than async getTelemetryConfig().
  */
 export function isTelemetryEnabled(): boolean {
-  // Explicit opt-out, and the DO_NOT_TRACK standard. Both are read
-  // tolerantly (see opt-out.ts): an opt-out that only worked for one exact
-  // spelling would leave users tracked who believe they are not.
-  if (isTelemetryOptedOutByEnv()) {
+  // DO_NOT_TRACK is a privacy control, so all values except explicit off-values
+  // disable collection.
+  if (isDoNotTrackSet()) {
     return false;
   }
 
@@ -88,18 +88,23 @@ export function isTelemetryEnabled(): boolean {
     return false;
   }
 
-  // Global config opt-out (env/CI remain hard overrides above)
-  if (getGlobalConfig().telemetry?.enabled === false) {
+  // An explicitly supplied non-on telemetry value is an opt-out.
+  if (isTelemetryDisabledByEnv()) {
     return false;
   }
 
-  // A config file that cannot be parsed reads as defaults, which carry no
-  // opt-out, but the file itself may hold one. Unknown is not consent.
+  const telemetry = getGlobalConfig().telemetry;
+  // An explicit persisted opt-out cannot be overridden by an environment opt-in.
+  if (telemetry?.enabled === false) {
+    return false;
+  }
+
+  // A config file that cannot be parsed may be hiding a user's opt-out.
   if (isGlobalConfigUnreadable()) {
     return false;
   }
 
-  return true;
+  return isTelemetryOptedInByEnv() || telemetry?.enabled === true;
 }
 
 /**
@@ -213,7 +218,7 @@ export async function maybeShowTelemetryNotice(
     // Display notice on stderr, not stdout: stdout is reserved for command
     // output (raw passthrough text, JSON, etc.) and must stay parser/pipe-safe.
     console.error(
-      'Note: OpenSpec collects anonymous usage stats. Opt out: OPENSPEC_TELEMETRY=0 or openspec config set telemetry.enabled false'
+      'Note: OpenSpec collects anonymous usage stats because telemetry is enabled. Disable it: OPENSPEC_TELEMETRY=0 or openspec config set telemetry.enabled false'
     );
 
     // Mark as seen
